@@ -1,18 +1,20 @@
 package main
 
-import "fmt"
-
 func main() {
-	// err := ListTasks(true)
+	// err := ListTasks(false)
 	// if err != nil {
 	// 	fmt.Print(err)
 	// }
 
-	if err := AddNewTask("learn REST"); err != nil {
-		fmt.Println(err)
-	}
+	// if err := AddNewTask("learn Pointers"); err != nil {
+	// 	fmt.Println(err)
+	// }
+	//
+	// if err := CompleteTask(2); err != nil {
+	// 	fmt.Println(err)
+	// }
 
-	if err := ListTasks(true); err != nil {
-		fmt.Println(err)
-	}
+	// if err := DeleteTask(2); err != nil {
+	// 	fmt.Println(err)
+	// }
 }

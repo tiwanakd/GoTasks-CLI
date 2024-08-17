@@ -1,14 +1,15 @@
-package main
+package tasks
 
 import (
 	"encoding/csv"
 	"fmt"
 	"os"
+	"slices"
 	"strconv"
 	"text/tabwriter"
 	"time"
 
-	"github.com/gofrs/flock"
+	"github.com/gofrs/flock" // use to lock file similar to syscall.Flock which is only for UNix
 	"github.com/mergestat/timediff"
 )
 
@@ -19,12 +20,14 @@ type Task struct {
 	isComplete bool
 }
 
+const csvFileName = "tasks.csv"
+
 func loadFile(filePath string) (*os.File, *flock.Flock, error) {
 	file, err := os.OpenFile(filePath, os.O_RDWR|os.O_APPEND|os.O_CREATE, 0644)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to open file for reading %w", err)
 	}
-
+	// lock the file avoid any concurrent file processes
 	fileLock := flock.New(filePath)
 	locked, err := fileLock.TryLock()
 	if err != nil {
@@ -46,9 +49,7 @@ func closeFile(file *os.File, fileLock *flock.Flock) error {
 }
 
 func readAllTasks() ([][]string, error) {
-	fileName := "tasks.csv"
-
-	file, fileLock, err := loadFile(fileName)
+	file, fileLock, err := loadFile(csvFileName)
 	if err != nil {
 		return nil, err
 	}
@@ -59,14 +60,16 @@ func readAllTasks() ([][]string, error) {
 	return csvReader.ReadAll()
 }
 
-func createAllTasks() (*[]Task, error) {
+// create a new slice that holds Task type pointers with infor provided by CSV
+func createAllTasks() ([]*Task, error) {
 	allTasks, err := readAllTasks()
 	if err != nil {
 		return nil, err
 	}
 
-	taskList := make([]Task, len(allTasks)-1)
+	taskList := make([]*Task, len(allTasks)-1)
 
+	// loop over the task list and parse each field as per the type
 	for index, task := range allTasks[1:] {
 		taskId, err := strconv.Atoi(task[0])
 		if err != nil {
@@ -90,10 +93,41 @@ func createAllTasks() (*[]Task, error) {
 			isComplete: isComplete,
 		}
 
-		taskList[index] = createTask
+		taskList[index] = &createTask
 	}
 
-	return &taskList, nil
+	return taskList, nil
+}
+
+// function get the slice of Task type pointers and writes to csv file
+func writeAllTasks(allTasks []*Task) error {
+	taskFile, fileLock, err := loadFile(csvFileName)
+	if err != nil {
+		return err
+	}
+	defer closeFile(taskFile, fileLock)
+
+	taskFile.Seek(0, 0)
+	taskFile.Truncate(0)
+
+	csvWriter := csv.NewWriter(taskFile)
+	csvWriter.Write([]string{"ID", "Description", "CreatedAt", "IsComplete"})
+
+	record := make([]string, 4)
+
+	for _, task := range allTasks {
+		record[0] = strconv.Itoa(task.id)
+		record[1] = task.name
+		record[2] = task.createdAt.Format(time.RFC3339)
+		record[3] = strconv.FormatBool(task.isComplete)
+
+		if err := csvWriter.Write(record); err != nil {
+			return err
+		}
+	}
+	csvWriter.Flush()
+
+	return csvWriter.Error()
 }
 
 func ListTasks(listAll bool) error {
@@ -107,7 +141,7 @@ func ListTasks(listAll bool) error {
 	if !listAll {
 		fmt.Fprint(w, "ID\tTask\tCreated\n")
 
-		for _, task := range *allTasks {
+		for _, task := range allTasks {
 			if !task.isComplete {
 				fmt.Fprintf(
 					w,
@@ -122,7 +156,7 @@ func ListTasks(listAll bool) error {
 	} else {
 		fmt.Fprint(w, "ID\tTask\tCreated\tDone\n")
 
-		for _, task := range *allTasks {
+		for _, task := range allTasks {
 			fmt.Fprintf(w, "%d\t%s\t%s\t%v\n", task.id, task.name, timediff.TimeDiff(task.createdAt), task.isComplete)
 		}
 		w.Flush()
@@ -131,6 +165,7 @@ func ListTasks(listAll bool) error {
 	return nil
 }
 
+// get the last id from the task which can be incremented on each new task
 func getLastTaskID() (int, error) {
 	allTasks, err := readAllTasks()
 	if err != nil {
@@ -153,10 +188,9 @@ func AddNewTask(name string) error {
 
 	newTaskId := strconv.Itoa(lastTaskId + 1)
 
-	now := time.Now()
-	nowStr := now.Format(time.RFC3339)
+	nowStr := time.Now().Format(time.RFC3339)
 
-	file, fileLock, err := loadFile("tasks.csv")
+	file, fileLock, err := loadFile(csvFileName)
 	if err != nil {
 		return err
 	}
@@ -172,4 +206,36 @@ func AddNewTask(name string) error {
 	csvWriter.Flush()
 
 	return csvWriter.Error()
+}
+
+func CompleteTask(taskId int) error {
+	allTasks, err := createAllTasks()
+	if err != nil {
+		return err
+	}
+
+	for _, task := range allTasks {
+		if task.id == taskId {
+			task.isComplete = true
+		}
+	}
+	return writeAllTasks(allTasks)
+}
+
+func DeleteTask(taskId int) error {
+	allTasks, err := createAllTasks()
+	if err != nil {
+		return err
+	}
+
+	var deletIndex int
+
+	for i, task := range allTasks {
+		if task.id == taskId {
+			deletIndex = i
+		}
+	}
+
+	allTasks = slices.Delete(allTasks, deletIndex, deletIndex+1)
+	return writeAllTasks(allTasks)
 }
