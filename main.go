@@ -1,20 +1,9 @@
 package main
 
+import (
+	"github.com/tiwanakd/GoTasks-CLI.git/cmd"
+)
+
 func main() {
-	// err := ListTasks(false)
-	// if err != nil {
-	// 	fmt.Print(err)
-	// }
-
-	// if err := AddNewTask("learn Pointers"); err != nil {
-	// 	fmt.Println(err)
-	// }
-	//
-	// if err := CompleteTask(2); err != nil {
-	// 	fmt.Println(err)
-	// }
-
-	// if err := DeleteTask(2); err != nil {
-	// 	fmt.Println(err)
-	// }
+	cmd.Execute()
 }

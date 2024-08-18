@@ -136,6 +136,10 @@ func ListTasks(listAll bool) error {
 		return err
 	}
 
+	if len(allTasks) < 1 {
+		return fmt.Errorf("no tasks found, add new tasks")
+	}
+
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 1, ' ', tabwriter.TabIndent)
 
 	if !listAll {
@@ -214,11 +218,19 @@ func CompleteTask(taskId int) error {
 		return err
 	}
 
+	idExists := false
 	for _, task := range allTasks {
 		if task.id == taskId {
 			task.isComplete = true
+			idExists = true
+			break
 		}
 	}
+
+	if !idExists {
+		return fmt.Errorf("no task with given id")
+	}
+
 	return writeAllTasks(allTasks)
 }
 
@@ -229,11 +241,17 @@ func DeleteTask(taskId int) error {
 	}
 
 	var deletIndex int
-
+	idExists := false
 	for i, task := range allTasks {
 		if task.id == taskId {
 			deletIndex = i
+			idExists = true
+			break
 		}
+	}
+
+	if !idExists {
+		return fmt.Errorf("no task with given id")
 	}
 
 	allTasks = slices.Delete(allTasks, deletIndex, deletIndex+1)
