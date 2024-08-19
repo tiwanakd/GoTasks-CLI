@@ -23,13 +23,13 @@ type Task struct {
 const csvFileName = "tasks.csv"
 
 func loadFile(filePath string) (*os.File, *flock.Flock, error) {
-	file, err := os.OpenFile(filePath, os.O_RDWR|os.O_APPEND|os.O_CREATE, 0644)
+	file, err := os.OpenFile(filePath, os.O_RDWR|os.O_APPEND, 0644)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to open file for reading %w", err)
 	}
 	// lock the file avoid any concurrent file processes
 	fileLock := flock.New(filePath)
-	locked, err := fileLock.TryLock()
+	locked, err := fileLock.TryRLock()
 	if err != nil {
 		file.Close()
 		return nil, nil, fmt.Errorf("error locking the filen %w", err)
@@ -60,11 +60,17 @@ func readAllTasks() ([][]string, error) {
 	return csvReader.ReadAll()
 }
 
-// create a new slice that holds Task type pointers with infor provided by CSV
+// create a new slice that holds Task type pointers with info provided by CSV
 func createAllTasks() ([]*Task, error) {
 	allTasks, err := readAllTasks()
 	if err != nil {
 		return nil, err
+	}
+
+	// if len of allTasks in less the 2 (since first line the coulum name)
+	// return an error
+	if len(allTasks) < 2 {
+		return nil, fmt.Errorf("no tasks found")
 	}
 
 	taskList := make([]*Task, len(allTasks)-1)
@@ -134,10 +140,6 @@ func ListTasks(listAll bool) error {
 	allTasks, err := createAllTasks()
 	if err != nil {
 		return err
-	}
-
-	if len(allTasks) < 1 {
-		return fmt.Errorf("no tasks found, add new tasks")
 	}
 
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 1, ' ', tabwriter.TabIndent)
@@ -218,6 +220,7 @@ func CompleteTask(taskId int) error {
 		return err
 	}
 
+	// will check if the given ID exists
 	idExists := false
 	for _, task := range allTasks {
 		if task.id == taskId {
@@ -231,6 +234,7 @@ func CompleteTask(taskId int) error {
 		return fmt.Errorf("no task with given id")
 	}
 
+	// write back to the csv file
 	return writeAllTasks(allTasks)
 }
 
@@ -240,6 +244,7 @@ func DeleteTask(taskId int) error {
 		return err
 	}
 
+	// set up an var to track the id of the task to delete
 	var deletIndex int
 	idExists := false
 	for i, task := range allTasks {
@@ -254,6 +259,7 @@ func DeleteTask(taskId int) error {
 		return fmt.Errorf("no task with given id")
 	}
 
+	// delete the task with the delete index from the slice
 	allTasks = slices.Delete(allTasks, deletIndex, deletIndex+1)
 	return writeAllTasks(allTasks)
 }

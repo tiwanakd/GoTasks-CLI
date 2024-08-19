@@ -16,7 +16,9 @@ var (
 
 	listAll      bool
 	cmdListTasks = &cobra.Command{
-		Use: "list",
+		Use:   "list",
+		Short: "List Tasks",
+		Long:  "list all the uncompleted tasks, use -a to list all tasksk",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := tasks.ListTasks(listAll); err != nil {
 				return err
@@ -25,15 +27,19 @@ var (
 		},
 	}
 	cmdAddNewTask = &cobra.Command{
-		Use:  "add [name of task]",
-		Args: cobra.MinimumNArgs(1),
+		Use:   "add [name of task]",
+		Short: "Add new task",
+		Long:  "Add new task to current task list",
+		Args:  cobra.MinimumNArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
 			tasks.AddNewTask(strings.Join(args, " "))
 		},
 	}
 	cmdCompleteTask = &cobra.Command{
-		Use:  "complete [taskId]",
-		Args: cobra.MinimumNArgs(1),
+		Use:   "complete [taskId]",
+		Short: "Mark task as complete",
+		Long:  "Task with the given id will be marked as complete",
+		Args:  cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) > 1 {
 				return fmt.Errorf("invalid number of arguments provided")
@@ -45,8 +51,10 @@ var (
 		},
 	}
 	cmdDeleteTask = &cobra.Command{
-		Use:  "delete [taskId]",
-		Args: cobra.MinimumNArgs(1),
+		Use:   "delete [taskId]",
+		Short: "Delete Task",
+		Long:  "Delete the task with the given ID",
+		Args:  cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) > 1 {
 				return fmt.Errorf("invalid number of arguments provided")
@@ -59,6 +67,8 @@ var (
 	}
 )
 
+// since the args are provided as []string
+// convert to int to be used for complete and delete
 func convertID(args []string) int {
 	var taskId int
 	var err error
